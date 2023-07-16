@@ -1,5 +1,5 @@
 use clap::{arg, Command};
-use std::fs;
+use std::{fs, io::Read};
 
 const MAX_LEN:usize = 18446744073709551615;
 
@@ -127,14 +127,22 @@ pad (message: &mut Vec<u8>) {
     message.extend_from_slice(&len_in_bytes);
 }
 
+/**
+ * Convenience function for passing strings; converts given string to a Vector of u8 bytes for 
+ * the hash() function.
+ */
+fn hash_string (message: &str) -> String {
+    let mut message_bytes = message.as_bytes().to_vec();
+    return hash (&mut message_bytes);
+}
+
 fn
-hash (message: &str) -> String {
+hash (message: &mut Vec<u8>) -> String {
 
     let mut state:State = Default::default();
-    let mut message_bytes = message.as_bytes().to_vec();
 
     // Extend to a multiple of 512 bits
-    pad (&mut message_bytes);
+    pad (message);
 
     /*
     * From https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf # 5.2
@@ -147,7 +155,7 @@ hash (message: &str) -> String {
     * M(1), M(2),..., M(N). Since the 1024 bits of the input block may be expressed as sixteen 64-bit words, the first 
     * 64 bits of message block i are denoted M0(i), the next 64 bits are M(i), and so on up to M(i).
     */
-    for outer_block in message_bytes.chunks(64) {
+    for outer_block in message.chunks(64) {
         let mut w: [u32; 64] = [0; 64];
         let mut indx = 0;
 
@@ -223,10 +231,12 @@ hash (message: &str) -> String {
 
 fn 
 tests () {
-    assert!(hash("").eq("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"));
-    assert!(hash("abcde").eq("36bbe50ed96841d10443bcb670d6554f0a34b761be67ec9c4a8ad2c0c44ca42c"));
-    assert!(hash("abcdefghijklmnopqrstuvwxyz12345678901234567890")
+    assert!(hash_string("").eq("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"));
+    assert!(hash_string("abcde").eq("36bbe50ed96841d10443bcb670d6554f0a34b761be67ec9c4a8ad2c0c44ca42c"));
+    assert!(hash_string("abcdefghijklmnopqrstuvwxyz12345678901234567890")
       .eq("a8143361b55756a30c4c4369726748e4ae193ca1d31e1f21f47bc7171cd56e9a"));
+
+    println!("Tests completed successfully!");
 }
 
 fn 
@@ -244,14 +254,17 @@ main () {
     let test = matches.get_one::<bool>("test");
 
     match (string, path, test) {
-        (Some(text), None, Some(false)) => {
-            let digest = hash(&text);
+        (Some(&ref text), None, Some(false)) => {
+            let digest = hash_string(&text);
             println!("{}", digest);
         },
         (None, Some(f), Some(false)) => {
-            let contents = fs::read_to_string(f)
-                .expect("Should have been able to read the file");
-            let digest = hash(&contents);
+            let mut file_data: Vec<u8> = Vec::new();
+            let mut file = fs::File::open(f).expect("unable to open file");
+
+            file.read_to_end(&mut file_data).expect("unable to read data");
+
+            let digest = hash(&mut file_data);
             println!("{}", digest);
         },
         (None, None, Some(true)) => {

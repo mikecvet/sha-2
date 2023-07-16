@@ -3,14 +3,13 @@ use std::{fs, io::Read};
 
 const MAX_LEN:usize = 18446744073709551615;
 
-const H0: u32 = 0x6a09e667;
-const H1: u32 = 0xbb67ae85;
-const H2: u32 = 0x3c6ef372;
-const H3: u32 = 0xa54ff53a;
-const H4: u32 = 0x510e527f;
-const H5: u32 = 0x9b05688c;
-const H6: u32 = 0x1f83d9ab;
-const H7: u32 = 0x5be0cd19;
+const SHA_224_H_INIT: [u32; 8] = [
+    0xc1059ed8, 0x367cd507, 0x3070dd17, 0xf70e5939, 0xffc00b31, 0x68581511, 0x64f98fa7, 0xbefa4fa4
+];
+
+const SHA_256_H_INIT: [u32; 8] = [
+    0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
+];
 
 const K: [u32; 64] = [
    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
@@ -34,29 +33,33 @@ struct State {
     e: u32,
     f: u32,
     g: u32,
-    h: u32
-}
-
-impl Default for State {
-    /**
-     * Default constructor; initializes each of the State fields 
-     * to the initial values from 3.3
-     */
-    fn default () -> State {
-        State {
-            a: H0,
-            b: H1,
-            c: H2,
-            d: H3,
-            e: H4,
-            f: H5,
-            g: H6,
-            h: H7
-        }
-    }
+    h: u32,
+    n: usize
 }
 
 impl State {
+    fn new (n: usize) -> State {       
+
+        // Select the appropriate initialization values based on algorithm 
+        let init: &[u32; 8] = match n {
+            224 => &SHA_224_H_INIT,
+            256 => &SHA_256_H_INIT,
+            _ => panic!("unsupported hash length"),
+        };
+
+        State {
+            a: init[0],
+            b: init[1],
+            c: init[2],
+            d: init[3],
+            e: init[4],
+            f: init[5],
+            g: init[6],
+            h: init[7],
+            n: n
+        }
+    }
+
     /**
      * Rotates state values according to https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf 6.2.2 s
      * section 3.
@@ -95,7 +98,10 @@ impl State {
         bytes.extend_from_slice(&self.e.to_be_bytes());
         bytes.extend_from_slice(&self.f.to_be_bytes());
         bytes.extend_from_slice(&self.g.to_be_bytes());
-        bytes.extend_from_slice(&self.h.to_be_bytes());
+
+        if self.n == 256 {
+            bytes.extend_from_slice(&self.h.to_be_bytes());
+        }
 
         return bytes;
     }
@@ -131,15 +137,15 @@ pad (message: &mut Vec<u8>) {
  * Convenience function for passing strings; converts given string to a Vector of u8 bytes for 
  * the hash() function.
  */
-fn hash_string (message: &str) -> String {
+fn hash_string (message: &str, n: usize) -> String {
     let mut message_bytes = message.as_bytes().to_vec();
-    return hash (&mut message_bytes);
+    return hash (&mut message_bytes, n);
 }
 
 fn
-hash (message: &mut Vec<u8>) -> String {
+hash (message: &mut Vec<u8>, n: usize) -> String {
 
-    let mut state:State = Default::default();
+    let mut state:State = State::new(n);
 
     // Extend to a multiple of 512 bits
     pad (message);
@@ -222,19 +228,23 @@ hash (message: &mut Vec<u8>) -> String {
         state.add(&input_values);
     }
 
-    // Export state integers into a byte array
-    let digest: [u8; 32] = state.export().try_into().expect("Wrong length");
-
-    // Encode into base 64
-    return hex::encode(&digest); 
+    // Encode state into base 64
+    return hex::encode(
+        &state.export()
+    ); 
 }
 
 fn 
 tests () {
-    assert!(hash_string("").eq("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"));
-    assert!(hash_string("abcde").eq("36bbe50ed96841d10443bcb670d6554f0a34b761be67ec9c4a8ad2c0c44ca42c"));
-    assert!(hash_string("abcdefghijklmnopqrstuvwxyz12345678901234567890")
+    assert!(hash_string("", 256).eq("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"));
+    assert!(hash_string("abcde", 256).eq("36bbe50ed96841d10443bcb670d6554f0a34b761be67ec9c4a8ad2c0c44ca42c"));
+    assert!(hash_string("abcdefghijklmnopqrstuvwxyz12345678901234567890", 256)
       .eq("a8143361b55756a30c4c4369726748e4ae193ca1d31e1f21f47bc7171cd56e9a"));
+
+      assert!(hash_string("", 224).eq("d14a028c2a3a2bc9476102bb288234c415a2b01f828ea62ac5b3e42f"));
+      assert!(hash_string("abcde", 224).eq("bdd03d560993e675516ba5a50638b6531ac2ac3d5847c61916cfced6"));
+      assert!(hash_string("abcdefghijklmnopqrstuvwxyz12345678901234567890", 224)
+        .eq("bbf04b42f9aa379d73e39955828523db73f5ddef6f8ca518684fb2b7"));
 
     println!("Tests completed successfully!");
 }
@@ -246,16 +256,30 @@ main () {
     .about("Fun with cryptographic hash functions")
     .arg(arg!(--path <VALUE>).required(false))
     .arg(arg!(--string <VALUE>).required(false))
+    .arg(arg!(--algo <VALUE>).required(false))
     .arg(arg!(--test).required(false))
     .get_matches();
 
     let string = matches.get_one::<String>("string");
     let path = matches.get_one::<String>("path");
+    let algo = matches.get_one::<String>("algo");
     let test = matches.get_one::<bool>("test");
+
+    let n = match algo.as_deref() {
+        None => {
+            println!("no algorithim specified; assuming SHA-256");
+            256
+        },
+        Some(s) => match s.as_str() {
+            "224" => 224,
+            "256" => 256,
+            _ => panic!("unsupported algorithm; provide either '224' or '256'"),
+        },
+    };
 
     match (string, path, test) {
         (Some(&ref text), None, Some(false)) => {
-            let digest = hash_string(&text);
+            let digest = hash_string(&text, n);
             println!("{}", digest);
         },
         (None, Some(f), Some(false)) => {
@@ -264,7 +288,7 @@ main () {
 
             file.read_to_end(&mut file_data).expect("unable to read data");
 
-            let digest = hash(&mut file_data);
+            let digest = hash(&mut file_data, n);
             println!("{}", digest);
         },
         (None, None, Some(true)) => {

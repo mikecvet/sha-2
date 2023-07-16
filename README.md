@@ -23,13 +23,13 @@ I tested the performance of this code against the built-in `shasum` command-line
 
     real	0m4.472s
     user	0m4.216s
-    sys	    0m0.254s
+    sys	   0m0.254s
 
     ~/code/sha-2 ~>> time shasum -a 256 ~/Downloads/wiki/enwik9
     159b85351e5f76e60cbe32e04c677847a9ecba3adc79addab6f4c6c7aa3744bc  /Users/mike/Downloads/wiki/enwik9
 
     real	0m3.003s
     user	0m2.856s
-    sys	    0m0.139s
+    sys	   0m0.139s
 
 This code comes in around 132% of the digest time of that tool.    

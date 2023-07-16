@@ -240,11 +240,15 @@ tests () {
     assert!(hash_string("abcde", 256).eq("36bbe50ed96841d10443bcb670d6554f0a34b761be67ec9c4a8ad2c0c44ca42c"));
     assert!(hash_string("abcdefghijklmnopqrstuvwxyz12345678901234567890", 256)
       .eq("a8143361b55756a30c4c4369726748e4ae193ca1d31e1f21f47bc7171cd56e9a"));
+    assert!(hash_string("a8143361b55756a30c4c4369726748e4ae193ca1d31e1f21f47bc7171cd56e9a", 256)
+      .eq("fc3b517b3c9ede5c64058615d49ec4ac6eadda73d74f1eade0bdb5d70de93dfb"));
 
-      assert!(hash_string("", 224).eq("d14a028c2a3a2bc9476102bb288234c415a2b01f828ea62ac5b3e42f"));
-      assert!(hash_string("abcde", 224).eq("bdd03d560993e675516ba5a50638b6531ac2ac3d5847c61916cfced6"));
-      assert!(hash_string("abcdefghijklmnopqrstuvwxyz12345678901234567890", 224)
+    assert!(hash_string("", 224).eq("d14a028c2a3a2bc9476102bb288234c415a2b01f828ea62ac5b3e42f"));
+    assert!(hash_string("abcde", 224).eq("bdd03d560993e675516ba5a50638b6531ac2ac3d5847c61916cfced6"));
+    assert!(hash_string("abcdefghijklmnopqrstuvwxyz12345678901234567890", 224)
         .eq("bbf04b42f9aa379d73e39955828523db73f5ddef6f8ca518684fb2b7"));
+    assert!(hash_string("bbf04b42f9aa379d73e39955828523db73f5ddef6f8ca518684fb2b7", 224)
+    .eq("e8cffc71ed2e47380e3ae16a92a6f5cfeb1f393a59f05d2cd05d72af"));
 
     println!("Tests completed successfully!");
 }
@@ -267,7 +271,9 @@ main () {
 
     let n = match algo.as_deref() {
         None => {
-            println!("no algorithim specified; assuming SHA-256");
+            if test.is_none() {
+                println!("no algorithim specified; assuming SHA-256");
+            }
             256
         },
         Some(s) => match s.as_str() {

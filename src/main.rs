@@ -3,14 +3,23 @@ use std::{fs, io::Read};
 
 const MAX_LEN:usize = 18446744073709551615;
 
+// From https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf # 5.3.2
 const SHA_224_H_INIT: [u32; 8] = [
     0xc1059ed8, 0x367cd507, 0x3070dd17, 0xf70e5939, 0xffc00b31, 0x68581511, 0x64f98fa7, 0xbefa4fa4
 ];
 
+// From https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf # 5.3.3
 const SHA_256_H_INIT: [u32; 8] = [
     0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
 ];
 
+/*
+ * From https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf # 4.2.2 
+ *
+ * SHA-224 and SHA-256 use the same sequence of sixty-four constant 32-bit words,
+ * K{256}_0, K{256}_1, ..., K{256}_63. These words represent the first thirty-two bits of the 
+ * fractional parts of the cube roots of the first sixty-four prime numbers.
+ */
 const K: [u32; 64] = [
    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
